@@ -1,5 +1,10 @@
 WRF Web App
 ============
+name: Saharsh Manderwad
+eid: sm83223
+githubusername: saharsh-man55
+app: https://ec2-3-27-112-187.ap-southeast-2.compute.amazonaws.com:5009
+comments:
 
 Run 
 ----
