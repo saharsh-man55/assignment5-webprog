@@ -170,11 +170,11 @@ class UserCity(Base):
     def __repr__(self):
         return "<UserCity(cityId='%d' userId='%d')>" % (self.cityId, self.userId)
 
-    # Ref: https://stackoverflow.com/questions/5022066/how-to-serialize-sqlalchemy-result-to-json
     def as_dict(self):
         fields = {}
         for c in self.__table__.columns:
-            fields[c.name] = getattr(self, c.name)
+            if c.name != "password":
+                fields[c.name] = getattr(self, c.name)
         return fields
 
 
@@ -188,11 +188,11 @@ class WeatherParameter(Base):
     def __repr__(self):
         return "<WeatherParameter(name='%s')>" % (self.name)
 
-    # Ref: https://stackoverflow.com/questions/5022066/how-to-serialize-sqlalchemy-result-to-json
     def as_dict(self):
         fields = {}
         for c in self.__table__.columns:
-            fields[c.name] = getattr(self, c.name)
+            if c.name != "password":
+                fields[c.name] = getattr(self, c.name)
         return fields
 
 
@@ -307,23 +307,25 @@ def credentials_to_dict(credentials):
 def add_admin():
     app.logger.info("Inside add_admin")
     data = request.json
-    app.logger.info("Received request:%s", str(data))
 
     name = data['name']
     password = data['password']
 
-
-    session = DBSession()
-    admin = session.query(Admin).filter_by(name=name).first()
+    dbsession = DBSession()
+    admin = dbsession.query(Admin).filter_by(name=name).first()
 
     if admin != None:
         status = ("Admin with name {name} already exists.\n").format(name=name)
         return Response(status, status=400)
-    else:
-        # 3. Assignment 5: Use bcrypt to encrypt the password.
-        admin = Admin(name=name, password=password)
-        session.add(admin)
-        session.commit()
+
+    hashed_password = bcrypt.hashpw(
+        password.encode('utf-8'),
+        bcrypt.gensalt()
+    ).decode('utf-8')
+
+    admin = Admin(name=name, password=hashed_password)
+    dbsession.add(admin)
+    dbsession.commit()
 
     return admin.as_dict()
 
@@ -381,24 +383,22 @@ def delete_admin_by_id(id):
 def add_user():
     app.logger.info("Inside add_user")
     data = request.json
-    app.logger.info("Received request:%s", str(data))
 
     name = data['name']
     password = data['password']
 
-    # 4. Assignment 5: Use bcrypt to encrypt the password.
-    newuser = User(name=name, password=password)
+    hashed_password = bcrypt.hashpw(
+        password.encode('utf-8'),
+        bcrypt.gensalt()
+    ).decode('utf-8')
 
-    session = DBSession()
-    user = session.query(User).filter_by(name=name).first()
-    if user == None:
-        session.add(newuser)
-        session.commit()
+    dbsession = DBSession()
 
-        return newuser.as_dict()
-    else:
-        status = ("User with name {name} already exists.\n").format(name=name)
-        return Response(status, status=400)
+    newuser = User(name=name, password=hashed_password)
+    dbsession.add(newuser)
+    dbsession.commit()
+
+    return newuser.as_dict()
 
 @app.route("/users")
 def get_users():
@@ -791,9 +791,17 @@ def registercity():
                 status_style="display:block;")
 
 
-# 5. Assignment 5: 
-# - Connect the "login-using-google" form with this method
-# - For http methods list in the definition, use POST and GET
+<button type="submit" class="btn btn-primary">Login</button>
+</form>
+
+<hr>
+
+<form action="authorize" method="get" class="form-signin">
+    <button type="submit" class="btn btn-primary">
+        Login using Google
+    </button>
+</form>
+@app.route("/authorize", methods=['POST', 'GET'])
 def authorize():
   if not os.path.exists(CLIENT_SECRETS_FILE):
       return render_template('google-oauth-client-secrets-file-missing.html')
